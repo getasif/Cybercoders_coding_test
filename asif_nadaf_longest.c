@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define FALSE 0
 #define TRUE  1
@@ -39,7 +40,7 @@
 #define DEBUG_ENABLE_DISABLE FALSE
 
 #if DEBUG_ENABLE_DISABLE
-    #define PRINT_DEBUG_STATEMENT TRUE
+#define PRINT_DEBUG_STATEMENT TRUE
 #endif
 
 int g_largest_string_index = 0; /*global variable to hold the longest string length*/
@@ -124,7 +125,8 @@ void Create_Hashmap_index(const char *filename, struct node* (*ptr_word_hash_tab
     {
         fprintf(stderr, "Can't open input file words.txt for parsing!\n");
         exit(1);
-    } else
+    } 
+    else
     {
         while (ch != EOF)
         {
@@ -133,7 +135,11 @@ void Create_Hashmap_index(const char *filename, struct node* (*ptr_word_hash_tab
             if (ch == ' ' || ch == '\n')
             {
                 string_length = character - 1;  /*beware and consider the ' ' or '\n', replace with 0 */
-                string_word = (char *)malloc(string_length + 2); /*adding 1 for the null terminating char */
+                if(NULL == (string_word = (char *)malloc(string_length + 2)))/*adding 1 for the null terminating char */
+                {
+                            perror("Memory allocation failed");
+                            exit(1);
+                }
                 fseek(fptr, -(string_length + 1), SEEK_CUR);
 
                 fgets(string_word, string_length + 2, fptr); /*advances to the next word entry*/
@@ -142,12 +148,12 @@ void Create_Hashmap_index(const char *filename, struct node* (*ptr_word_hash_tab
                     string_word[string_length] = '\0';
                 }
 
-                /*here string_length includes the last null terminating char*/
-                #if defined PRINT_DEBUG_STATEMENT
-                    printf("the word in str is %s and length = %d \n", string_word, string_length);
-                #endif
+                /*here string_length doesn't include the last null terminating char*/
+#if defined PRINT_DEBUG_STATEMENT
+                printf("the word in str is %s and length = %d \n", string_word, string_length);
+#endif
                 Add_Hashmap_entry(string_length, string_word, ptr_word_hash_table);
-                free(string_word); /*code cleanup*/
+                free(string_word); /*code cleanup for local temporary string variable*/
                 character = string_length = 0;
             }
         }
@@ -162,22 +168,29 @@ void Add_Hashmap_entry(size_t string_length_as_index, char *string_word, struct 
 
 
     /*populate the string length and string variables in the node*/
-    new_node = (struct node *)malloc(sizeof(struct node));
+    if(NULL == (new_node = (struct node *)malloc(sizeof(struct node)))) /*adding 1 for the null terminating char */
+    {
+                perror("Memory allocation failed ");
+                exit(1);
+    }
     new_node->string_length = string_length_as_index;
-    new_node->string = (char *)malloc(string_length_as_index + 1); /* 1 char more for '\0' */
+    if(NULL == (new_node->string = (char *)malloc(string_length_as_index + 1))) /* 1 char more for '\0' */
+    {
+                perror("Memory allocation failed ");
+                exit(1);
+    }
     strcpy(new_node->string, string_word);
     new_node->link = NULL;
 
-    #if defined PRINT_DEBUG_STATEMENT
-        printf("index is %lu and word is %s\r\n", string_length_as_index, string_word);
-    #endif
+#if defined PRINT_DEBUG_STATEMENT
+    printf("index is %lu and word is %s\r\n", string_length_as_index, string_word);
+#endif
 
     /* if list is empty */
     if (current_node == NULL)
     {
         (*ptr_word_hash_table)[string_length_as_index] = current_node = new_node;
-    } 
-    else
+    } else
     {
         /* traverse the list till the end to add the new node with equivalent string length*/
         while (temp != NULL)
@@ -197,8 +210,6 @@ void Add_Hashmap_entry(size_t string_length_as_index, char *string_word, struct 
 
 void Display_Hashmap_largest(int g_largest_string_index, struct node* (*ptr_word_hash_table)[])
 {
-    printf("in Display \r\n");
-    
     int largest_index_temp = g_largest_string_index; /*lets leave global variable untouched*/
 
     int i = 10; struct node *temp;
@@ -213,8 +224,7 @@ void Display_Hashmap_largest(int g_largest_string_index, struct node* (*ptr_word
                 printf("%4d) Largest string is %-s\t with string length=%2ld \r\n", i, temp->string, temp->string_length);
                 temp = temp->link;
             }
-        }
-        else
+        } else
         {
             largest_index_temp--;
             continue;
@@ -232,25 +242,25 @@ void Hashmap_destroy(struct node* (*ptr_word_hash_table)[])
     int largest_index_temp = g_largest_string_index; /*lets leave global variable untouched*/
     int i = largest_index_temp;
 
-    struct node* head_reference = NULL;
-    struct node* next_node = NULL;
-    struct node* current_node = NULL;
+    struct node *head_reference = NULL;
+    struct node *next_node = NULL;
+    struct node *current_node = NULL;
 
     while (((*ptr_word_hash_table)[largest_index_temp] != NULL) && (i <= largest_index_temp && i != 0))
     {
-           current_node = head_reference = (*ptr_word_hash_table)[i];
-           while (current_node != NULL) 
-           {
-               #if defined PRINT_DEBUG_STATEMENT
-                printf("node with string %s deleted \r\n", current_node->string);
-               #endif
-               next_node = current_node->link;
-               free(current_node->string);  /*free the malloced string*/
-               free(current_node);          /*finally free the whole node*/
-               current_node = next_node;
-           }
+        current_node = head_reference = (*ptr_word_hash_table)[i];
+        while (current_node != NULL)
+        {
+#if defined PRINT_DEBUG_STATEMENT
+            printf("node with string %s deleted \r\n", current_node->string);
+#endif
+            next_node = current_node->link;
+            free(current_node->string);  /*free the malloced string*/
+            free(current_node);          /*finally free the whole node*/
+            current_node = next_node;
+        }
 
-           head_reference = NULL;
-           i--;
+        head_reference = NULL;
+        i--;
     }
 }
